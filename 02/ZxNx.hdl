@@ -1,0 +1,14 @@
+CHIP ZxNx {
+    IN 
+        in[16],
+        zx,
+        nx;
+
+    OUT out[16];
+
+    PARTS:
+    Mux16(a=in, b=false, sel=zx, out=zxout);
+
+    Not16(in=zxout, out=notzxout);
+    Mux16(a=zxout, b=notzxout, sel=nx, out=out);
+}
