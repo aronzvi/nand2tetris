@@ -39,5 +39,87 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    
+    /*    
+    loadAControl: 
+       C instruction and dest = A (instruction[5] == 1)
+       or
+       A instruction (instruction[15] == 0)
+    */
+    DMux(in=true ,sel=instruction[15] ,a=isAInstruction ,b=isCInstruction);
+    And(a=isCInstruction ,b=instruction[5] ,out=isCinstructionAndDestA);
+    Or(a=isCinstructionAndDestA ,b=isAInstruction ,out=loadAControl);
+
+    /*
+    loadDControl:
+        C instruction and dest = D (instruction[4])
+    */
+    And(a=isCInstruction ,b=instruction[4] ,out=loadDControl);
+
+
+    /*
+    writeM:
+        C instruction and dest = M (instruction[3])
+    */
+    And(a=isCInstruction ,b=instruction[3] ,out=writeM);
+   
+    /*
+    jmpControl:
+    */
+
+    /* JGT */
+    And(a=notJ1, b=notJ2, out=notJ1AndNotJ2);
+    And(a=notJ1AndNotJ2, b=instruction[0], out=notJ1AndNotJ2AndJ3);
+    And(a=notAluNg, b=notAluZr, out=alNotNgAndNotZr);
+    And(a=notJ1AndNotJ2AndJ3, b=alNotNgAndNotZr, out=jgt);
+
+    /* JEQ */
+    And(a=notJ1AndJ2, b=notJ3, out=notJ1AndJ2AndNotJ3);
+    And(a=notJ1AndJ2AndNotJ3, b=aluZr, out=jeq);
+
+    /* JGE */
+    Not(in=instruction[2], out=notJ1);
+    And(a=notJ1, b=instruction[1], out=notJ1AndJ2);
+    And(a=notJ1AndJ2, b=instruction[0], out=notJ1Andj2AndJ3);
+    Not(in=aluNg, out=notAluNg);
+    Or(a=aluZr, b=notAluNg, out=aluZrOrNotNg);
+    And(a=notJ1Andj2AndJ3, b=aluZrOrNotNg, out=jge);
+
+    /* JLT */
+    And(a=j1AndNotJ2, b=notJ3, out=j1AndNotJ2AndNotJ3);
+    And(a=j1AndNotJ2AndNotJ3, b=aluNg, out=jlt);
+
+    /* JNE */
+    Not(in=instruction[1], out=notJ2);
+    And(a=instruction[2] ,b=notJ2 ,out=j1AndNotJ2);
+    And(a=j1AndNotJ2 ,b=instruction[0] ,out=j1AndNotJ2AndJ3);
+    Not(in=aluZr, out=notAluZr);
+    And(a=j1AndNotJ2AndJ3, b=notAluZr, out=jne);
+
+    /* JLE */
+    Not(in=instruction[0], out=notJ3);
+    And(a=j1AndJ2 ,b=notJ3 ,out=j1AndJ2AndNotJ3);
+    Or(a=aluZr, b=aluNg, out=aluZrOrNg);
+    And(a=j1AndJ2AndNotJ3, b=aluZrOrNg, out=jle);
+
+    /* JMP */
+    And(a=instruction[2] ,b=instruction[1] ,out=j1AndJ2);
+    And(a=j1AndJ2 ,b=instruction[0] ,out=jmp);
+
+    Or(a=jmp, b=jle, out=jmpOrJle);
+    Or(a=jmpOrJle, b=jne, out=jmpOrJleOrJne);
+    Or(a=jmpOrJleOrJne, b=jlt, out=jmpOrJleOrJneOrJlt);
+    Or(a=jmpOrJleOrJneOrJlt, b=jge, out=jmpOrJleOrJneOrJltOrJge);
+    Or(a=jmpOrJleOrJneOrJltOrJge, b=jeq, out=jmpOrJleOrJneOrJltOrJgeOrJeq);
+    Or(a=jmpOrJleOrJneOrJltOrJgeOrJeq, b=jgt, out=jmpOrJleOrJneOrJltOrJgeOrJeqOrJgt);
+
+    And(a=jmpOrJleOrJneOrJltOrJgeOrJeqOrJgt, b=isCInstruction, out=jmpControl);
+
+    Mux16(a=alu, b=instruction, sel=isAInstruction, out=aFromAOrCInstruction);
+    ARegister(in=aFromAOrCInstruction, load=loadAControl, out[0..14]=addressM, out=aReg);
+    Mux16(a=aReg ,b=inM, sel=instruction[12], out=aOrMIn);
+    DRegister(in=alu ,load=loadDControl ,out=dReg);
+    ALU(x=dReg ,y=aOrMIn ,zx=instruction[11] ,nx=instruction[10] ,zy=instruction[9] ,ny=instruction[8] ,f=instruction[7] ,no=instruction[6] ,out=outM, out=alu ,zr=aluZr ,ng=aluNg);
+    PC(in=aReg ,load=jmpControl ,inc=true ,reset=reset, out[0..14]=pc); 
+    
 }
